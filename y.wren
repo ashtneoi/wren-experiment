@@ -112,8 +112,10 @@ class Scheduler {
 
             Q.expect(_tasks.count > 0)
 
-            var now = System.clock
             var chosenTask
+
+            // vvv FIXME: Do this without spinning.
+            var now = System.clock
             while (!chosenTask) {
                 for (task in _tasks) {
                     Q.expect(task.wakeSpec)
@@ -128,6 +130,9 @@ class Scheduler {
                     }
                 }
             }
+            // ^^^ FIXME
+
+            Q.expect(chosenTask)
             _current = chosenTask
             currentWakeSpec = chosenTask.fiber.call()
         }
