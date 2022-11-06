@@ -135,7 +135,7 @@ int main(int argc, char** argv)
         vm = wrenNewVM(&config);
     }
 
-    WrenInterpretResult result = wrenInterpret(vm, "hi", sourceText);
+    WrenInterpretResult result = wrenInterpret(vm, "mainmain", sourceText);
 
     (void)munmap(sourceText, sourceSize + 1); // too late to care about errors
 
