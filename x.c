@@ -17,8 +17,6 @@
 // in the gcc manual.)
 #define STR(s) #s
 
-// TODO: add E_WANTF (like E_EXPECTF except for foreseeable errors)
-
 // Example output:
 //   Error (at src/nar.c:52): expectation `strlen(path) < 40` failed
 #define EXPECT(rtn, cond) \

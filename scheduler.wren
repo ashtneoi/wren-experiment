@@ -73,7 +73,7 @@ class WakeSpec {
 class Scheduler {
     // runs in parent fiber
     static run(block) {
-        return new().do_run(block)
+        return new().doRun(block)
     }
 
     // runs in parent fiber
@@ -83,7 +83,7 @@ class Scheduler {
     }
 
     // runs in parent fiber
-    do_run(block) {
+    doRun(block) {
         var topTask = Task.new(block)
         _tasks.insert(0, topTask)
         _current = topTask

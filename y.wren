@@ -32,7 +32,6 @@ Scheduler.run { |sched|
 System.print()
 
 Scheduler.run { |sched|
-    // 0.0
     System.print("1")
     var a = sched.add {
         Scheduler.sleep(0.2)
@@ -53,7 +52,6 @@ Scheduler.run { |sched|
 System.print()
 
 Scheduler.run { |sched|
-    // 0.0
     System.print("1")
     var a = sched.add {
         Scheduler.sleep(0.2)
