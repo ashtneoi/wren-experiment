@@ -127,13 +127,13 @@ class Scheduler {
                 }
             }
 
-            var blockDuration = firstDeadline - System.clock
-            if (blockDuration >= 0) {
+            var blockTimeout = firstDeadline - System.clock
+            if (blockTimeout > 0) {
                 var pollfds = []
                 for (task in _tasks) {
                     pollfds.addAll(task.wakeSpec.events.map {|e| e.pollfd})
                 }
-                Scheduler.blockUntilReady(blockDuration, pollfds)
+                Scheduler.blockUntilReady(blockTimeout, pollfds)
             }
 
             var chosenTask

@@ -5,3 +5,8 @@ x: x.c ../lib/libwren.a errno-name.h
 
 ../lib/libwren.a:
 	cd ../projects/make && $(MAKE) wren
+
+clean:
+	cd ../projects/make && $(MAKE) clean
+
+.PHONY: clean

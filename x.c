@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "errno-name.h"
@@ -95,6 +96,14 @@
 #define R_RUNTIME_ERROR 101
 #define R_NORMAL_ERROR 108
 #define R_ABNORMAL_ERROR 109
+
+double wrenMonotonicClock(void)
+{
+  struct timespec t;
+  int r = clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+  E_EXPECT(R_ABNORMAL_ERROR, r == 0);
+  return (double)t.tv_sec + 1.0e-9 * (double)t.tv_nsec;
+}
 
 void wrenWrite(WrenVM* vm, const char* text)
 {
@@ -211,7 +220,7 @@ struct PollFdData {
     short events;
 };
 
-// Scheduler.blockUntilReady(duration, pollfds)
+// Scheduler.blockUntilReady(timeout, pollfds)
 void wren_Scheduler_blockUntilReady(WrenVM* vm)
 {
     wrenEnsureSlots(vm, 3);
@@ -230,10 +239,12 @@ void wren_Scheduler_blockUntilReady(WrenVM* vm)
         }
     }
 
-    int duration = (int)(wrenGetSlotDouble(vm, 1) * 1000);
+    // We add 1 in order to over-sleep instead of under-sleep (since the poll() duration has less
+    // precision than System.clock() does).
+    int timeout = (int)(wrenGetSlotDouble(vm, 1) * 1000) + 1;
 
-    printf("Calling poll(_, %lld, %d)\n", (unsigned long long)pollfdsLen, duration);
-    int r = poll(pollfds, pollfdsLen, duration);
+    //>> printf(">> Calling poll(_, %lld, %d)\n", (unsigned long long)pollfdsLen, timeout);
+    int r = poll(pollfds, pollfdsLen, timeout);
     if (r < 0) {
         if (errno == EINTR) {
             // That's fine.
@@ -345,7 +356,9 @@ int main(int argc, char** argv)
         config.loadModuleFn = &wrenLoadModule;
         config.bindForeignMethodFn = &wrenBindForeignMethod;
         config.bindForeignClassFn = &wrenBindForeignClass;
+        config.monotonicClock = &wrenMonotonicClock;
         vm = wrenNewVM(&config);
+        EXPECT(R_ABNORMAL_ERROR, vm != NULL);
     }
 
     WrenInterpretResult result = wrenInterpret(vm, "main", sourceText);
