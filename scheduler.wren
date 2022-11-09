@@ -1,21 +1,29 @@
 import "qutils" for Q
 
+foreign class PollFd {
+    construct new() { }
+}
+
 class Event {
 }
 
 class TaskWaitEvent is Event {
     construct new(task) {
         _task = task
+        _pollfd = PollFd.new()
     }
 
+    pollfd { _pollfd }
     occurred { _task.fiber.isDone }
 }
 
 class AllTaskWaitEvent is Event {
     construct new(tasks) {
         _tasks = tasks
+        _pollfd = PollFd.new()
     }
 
+    pollfd { _pollfd }
     occurred { _tasks.all {|t| t.fiber.isDone} }
 }
 
@@ -106,25 +114,42 @@ class Scheduler {
 
             Q.expect(_tasks.count > 0)
 
-            var chosenTask
-
-            // vvv FIXME: Do this without spinning.
-            var now = System.clock
-            while (!chosenTask) {
-                for (task in _tasks) {
-                    Q.expect(task.wakeSpec)
-                    if (task.wakeSpec.events.any {|e| e.occurred}) {
-                        chosenTask = task
-                        break
-                    } else if (task.wakeSpec.deadline) {
-                        if (task.wakeSpec.deadline <= System.clock) {
-                            chosenTask = task
-                            break
-                        }
+            var firstDeadline
+            for (task in _tasks) {
+                Q.expect(task.wakeSpec)
+                if (task.wakeSpec.events.any {|e| e.occurred}) {
+                    firstDeadline = 0
+                    break
+                } else if (task.wakeSpec.deadline) {
+                    if (!firstDeadline || task.wakeSpec.deadline < firstDeadline) {
+                        firstDeadline = task.wakeSpec.deadline
                     }
                 }
             }
-            // ^^^ FIXME
+
+            var blockDuration = firstDeadline - System.clock
+            if (blockDuration >= 0) {
+                var pollfds = []
+                for (task in _tasks) {
+                    pollfds.addAll(task.wakeSpec.events.map {|e| e.pollfd})
+                }
+                Scheduler.blockUntilReady(blockDuration, pollfds)
+            }
+
+            var chosenTask
+            var now = System.clock
+            for (task in _tasks) {
+                Q.expect(task.wakeSpec)
+                if (task.wakeSpec.events.any {|e| e.occurred}) {
+                    chosenTask = task
+                    break
+                } else if (task.wakeSpec.deadline) {
+                    if (task.wakeSpec.deadline <= System.clock) {
+                        chosenTask = task
+                        break
+                    }
+                }
+            }
 
             Q.expect(chosenTask)
             _current = chosenTask
@@ -152,4 +177,6 @@ class Scheduler {
     static sleep(duration) {
         Fiber.yield(WakeSpec.new(System.clock + duration, []))
     }
+
+    foreign static blockUntilReady(duration, pollfds)
 }

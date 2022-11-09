@@ -4,6 +4,8 @@
 
 #include <fcntl.h>
 #include <libgen.h>
+#include <poll.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -26,6 +28,19 @@
                 stderr, "Error (at %s:%d): expectation `%s` failed\n", __FILE__, __LINE__, \
                 STR(cond) \
             ); \
+            fflush(stderr); \
+            if (rtn >= 0) { \
+                exit(rtn); \
+            } \
+        } \
+    } while(0)
+
+#define EXPECTF(rtn, cond, ...) \
+    do { \
+        if (!(cond)) { \
+            fprintf(stderr, "Error (at %s:%d): ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__); \
+            fprintf(stderr, "\n"); \
             fflush(stderr); \
             if (rtn >= 0) { \
                 exit(rtn); \
@@ -190,6 +205,90 @@ WrenLoadModuleResult wrenLoadModule(WrenVM* vm, const char* name)
     };
 }
 
+struct PollFdData {
+    // Fields have the same meaning as for poll(2).
+    int fd; // Entire FdEventSpec is ignored if fd < 0.
+    short events;
+};
+
+// Scheduler.blockUntilReady(duration, pollfds)
+void wren_Scheduler_blockUntilReady(WrenVM* vm)
+{
+    wrenEnsureSlots(vm, 3);
+    EXPECT(R_ABNORMAL_ERROR, wrenGetSlotType(vm, 2) == WREN_TYPE_LIST);
+    int count = wrenGetListCount(vm, 2);
+
+    struct pollfd* pollfds = malloc(count * sizeof(struct pollfd));
+    nfds_t pollfdsLen = 0;
+    for (int i = 0; i < count; i++) {
+        wrenGetListElement(vm, 2, i, 0);
+        struct PollFdData* data = wrenGetSlotForeign(vm, 0);
+        if (data->fd >= 0) {
+            pollfds[pollfdsLen].fd = data->fd;
+            pollfds[pollfdsLen].events = data->events;
+            pollfdsLen++;
+        }
+    }
+
+    int duration = (int)(wrenGetSlotDouble(vm, 1) * 1000);
+
+    printf("Calling poll(_, %lld, %d)\n", (unsigned long long)pollfdsLen, duration);
+    int r = poll(pollfds, pollfdsLen, duration);
+    if (r < 0) {
+        if (errno == EINTR) {
+            // That's fine.
+        } else {
+            E_EXPECT(R_ABNORMAL_ERROR, r == 0);
+        }
+    }
+
+    wrenSetSlotNull(vm, 0);
+}
+
+WrenForeignMethodFn wrenBindForeignMethod(
+    WrenVM* vm, const char* module, const char* className, bool isStatic, const char* signature
+)
+{
+    (void)vm;
+
+    if (
+        0 == strcmp(module, "scheduler")
+        && 0 == strcmp(className, "Scheduler")
+        && isStatic
+        && 0 == strcmp(signature, "blockUntilReady(_,_)")
+    ) {
+        return &wren_Scheduler_blockUntilReady;
+    } else {
+        return NULL;
+    }
+}
+
+// PollFd.new()
+void wrenAllocate_scheduler_PollFd(WrenVM* vm)
+{
+    struct PollFdData* data = wrenSetSlotNewForeign(
+        vm, 0, 0, sizeof(struct PollFdData)
+    );
+    data->fd = -1;
+    data->events = 0;
+}
+
+WrenForeignClassMethods wrenBindForeignClass(
+    WrenVM* vm, const char* module, const char* className
+)
+{
+    (void)vm;
+
+    if (0 == strcmp(module, "scheduler") && 0 == strcmp(className, "PollFd")) {
+        return (WrenForeignClassMethods){
+            .allocate = &wrenAllocate_scheduler_PollFd,
+            .finalize = NULL
+        };
+    } else {
+        return (WrenForeignClassMethods){ .allocate = NULL, .finalize = NULL };
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2) {
@@ -244,6 +343,8 @@ int main(int argc, char** argv)
         config.writeFn = &wrenWrite;
         config.errorFn = &wrenError;
         config.loadModuleFn = &wrenLoadModule;
+        config.bindForeignMethodFn = &wrenBindForeignMethod;
+        config.bindForeignClassFn = &wrenBindForeignClass;
         vm = wrenNewVM(&config);
     }
 

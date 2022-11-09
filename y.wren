@@ -68,3 +68,15 @@ Scheduler.run { |sched|
     Task.waitAll(System.clock + 0.6, [a, b, c])
     System.print("4")
 }
+
+System.print()
+
+Scheduler.run { |sched|
+    System.print("1")
+    sched.add {
+        Scheduler.sleep(0.2)
+        Scheduler.sleep(0.2)
+        System.print("2")
+    }
+}
+System.print("3")
