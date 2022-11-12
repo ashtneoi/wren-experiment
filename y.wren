@@ -19,7 +19,7 @@ Scheduler.run { |sched|
             Scheduler.sleep(0.8)
             // 0.8
             System.print("8")
-        }.wait(System.clock + 0.4)
+        }.wait(Q.monotonicClock + 0.4)
         // 0.4
         System.print("7")
     }
@@ -45,7 +45,7 @@ Scheduler.run { |sched|
         Scheduler.sleep(0.6)
         System.print("5")
     }
-    Task.waitAny(System.clock + 0.8, [a, b, c])
+    Task.waitAny(Q.monotonicClock + 0.8, [a, b, c])
     System.print("3")
 }
 
@@ -65,7 +65,7 @@ Scheduler.run { |sched|
         Scheduler.sleep(0.8)
         System.print("5")
     }
-    Task.waitAll(System.clock + 0.6, [a, b, c])
+    Task.waitAll(Q.monotonicClock + 0.6, [a, b, c])
     System.print("4")
 }
 

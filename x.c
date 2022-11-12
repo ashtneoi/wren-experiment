@@ -97,14 +97,6 @@
 #define R_NORMAL_ERROR 108
 #define R_ABNORMAL_ERROR 109
 
-double wrenMonotonicClock(void)
-{
-  struct timespec t;
-  int r = clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-  E_EXPECT(R_ABNORMAL_ERROR, r == 0);
-  return (double)t.tv_sec + 1.0e-9 * (double)t.tv_nsec;
-}
-
 void wrenWrite(WrenVM* vm, const char* text)
 {
     (void)vm;
@@ -256,6 +248,15 @@ void wren_Scheduler_blockUntilReady(WrenVM* vm)
     wrenSetSlotNull(vm, 0);
 }
 
+// Q.monotonicClock
+void wren_Q_monotonicClock(WrenVM* vm)
+{
+    struct timespec t;
+    int r = clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+    E_EXPECT(R_ABNORMAL_ERROR, r == 0);
+    wrenSetSlotDouble(vm, 0, (double)t.tv_sec + 1.0e-9 * (double)t.tv_nsec);
+}
+
 WrenForeignMethodFn wrenBindForeignMethod(
     WrenVM* vm, const char* module, const char* className, bool isStatic, const char* signature
 )
@@ -269,6 +270,13 @@ WrenForeignMethodFn wrenBindForeignMethod(
         && 0 == strcmp(signature, "blockUntilReady(_,_)")
     ) {
         return &wren_Scheduler_blockUntilReady;
+    } else if (
+        0 == strcmp(module, "qutils")
+        && 0 == strcmp(className, "Q")
+        && isStatic
+        && 0 == strcmp(signature, "monotonicClock")
+    ) {
+        return &wren_Q_monotonicClock;
     } else {
         return NULL;
     }
@@ -356,7 +364,6 @@ int main(int argc, char** argv)
         config.loadModuleFn = &wrenLoadModule;
         config.bindForeignMethodFn = &wrenBindForeignMethod;
         config.bindForeignClassFn = &wrenBindForeignClass;
-        config.monotonicClock = &wrenMonotonicClock;
         vm = wrenNewVM(&config);
         EXPECT(R_ABNORMAL_ERROR, vm != NULL);
     }

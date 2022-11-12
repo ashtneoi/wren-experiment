@@ -49,7 +49,7 @@ class Task {
             return true
         } else if(_wakeSpec.events.any {|e| e.occurred}) {
             return true
-        } else if (_wakeSpec.deadline <= System.clock) {
+        } else if (_wakeSpec.deadline <= Q.monotonicClock) {
             return true
         } else {
             return false
@@ -127,7 +127,7 @@ class Scheduler {
                 }
             }
 
-            var blockTimeout = firstDeadline - System.clock
+            var blockTimeout = firstDeadline - Q.monotonicClock
             if (blockTimeout > 0) {
                 var pollfds = []
                 for (task in _tasks) {
@@ -137,14 +137,14 @@ class Scheduler {
             }
 
             var chosenTask
-            var now = System.clock
+            var now = Q.monotonicClock
             for (task in _tasks) {
                 Q.expect(task.wakeSpec)
                 if (task.wakeSpec.events.any {|e| e.occurred}) {
                     chosenTask = task
                     break
                 } else if (task.wakeSpec.deadline) {
-                    if (task.wakeSpec.deadline <= System.clock) {
+                    if (task.wakeSpec.deadline <= Q.monotonicClock) {
                         chosenTask = task
                         break
                     }
@@ -175,7 +175,7 @@ class Scheduler {
     }
 
     static sleep(duration) {
-        Fiber.yield(WakeSpec.new(System.clock + duration, []))
+        Fiber.yield(WakeSpec.new(Q.monotonicClock + duration, []))
     }
 
     foreign static blockUntilReady(duration, pollfds)

@@ -4,4 +4,6 @@ class Q {
             Fiber.abort("value is %(value)")
         }
     }
+
+    foreign static monotonicClock
 }
